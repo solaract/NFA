@@ -13,14 +13,14 @@ using std::vector;
 struct EdgeNode {
 	int NFAnode;				//对应状态下标
 	vector<char> inchar;		//允许的输入字符
-	struct EdgeNode *next;		//下一个邻接点
+	struct EdgeNode *next = NULL;		//下一个邻接点
 };
 
 //NFA状态
 struct VertexNode {
 	int start = 0;					//是否为起始状态
 	int end = 0;					//是否为接收状态
-	EdgeNode *first;				//链接状态转移表
+	EdgeNode *first = NULL;				//链接状态转移表
 };
 
 //NFA状态表
@@ -31,6 +31,11 @@ struct NFAlist
 	int vertexNum = 0;				//转移数
 	vector<int> acc;				//接受状态集
 };
+
+
+
+
+/*		NFA模拟			*/
 
 //初始化状态转移
 void createVertex(VertexNode &VertexNode, int NFAnode, vector<char> inchar) {
@@ -48,10 +53,6 @@ void initial(NFAlist &NFA) {
 
 	NFA.nodeNum = 6;
 	NFA.vertexNum = 8;
-	for (int i = 0; i < 10; i++)
-	{
-		NFA.nodelist[i].first = NULL;						//边表置空
-	}
 
 	NFA.nodelist[0].start = 1;								//起始状态
 	inchar.push_back(' '), inchar.push_back('+'), inchar.push_back('-');
@@ -87,19 +88,19 @@ void initial(NFAlist &NFA) {
 }
 
 //E闭包，结果包含原来的状态
-void ECLOSE(NFAlist &NFA,vector<int> &nodes) {
+void ECLOSE(NFAlist NFA,vector<int> &nodes) {
 	int i = 0;													//当前状态位置
 	EdgeNode *temp;
 	//cout << "ECLOSE:" << (0 == NULL) << ';' << endl;
 	//对当前状态集中的每个状态
 	while (i < (int)nodes.size()) {								//动态增长
-		cout << "ECLOSE:node:" << nodes[i] << ';' << endl;
+		//cout << "ECLOSE:node:" << nodes[i] << ';' << endl;
 		temp = NFA.nodelist[nodes[i]].first;					//进入下一状态
 		i++;
 		//对状态的每个转移
 		while (temp != NULL)
 		{
-			cout << "ECLOSE:size:" << temp->inchar.size() << ';' << endl;
+			//cout << "ECLOSE:size:" << temp->inchar.size() << ';' << endl;
 			int len = (int)temp->inchar.size();
 			//对转移的每个接受字符
 			for (int i = 0;i < len;i++)
@@ -116,7 +117,7 @@ void ECLOSE(NFAlist &NFA,vector<int> &nodes) {
 					}
 					if (equal)break;
 					nodes.push_back(temp->NFAnode);				//转移后的状态入集
-					cout << "ECLOSE:innode:" << nodes.back() << ';' << endl;
+					//cout << "ECLOSE:innode:" << nodes.back() << ';' << endl;
 					break;
 				}
 			}
@@ -132,7 +133,7 @@ void ECLOSE(NFAlist &NFA,vector<int> &nodes) {
 }
 
 //子集构造，结果不包含原来的状态
-void subset(NFAlist &NFA, vector<int> &nodes,char word) {
+void subset(NFAlist NFA, vector<int> &nodes,char word) {
 	EdgeNode *temp;												
 	int len = (int)nodes.size();								//当前状态集长度
 	int i = 0;													//当前状态索引
@@ -146,12 +147,12 @@ void subset(NFAlist &NFA, vector<int> &nodes,char word) {
 		//对状态的每个转移
 		while (temp != NULL)
 		{
-			cout << "subset:size:" << temp->inchar.size() << ';' << endl;
+			//cout << "subset:size:" << temp->inchar.size() << ';' << endl;
 			int len = (int)temp->inchar.size();
 			//对转移的每个接受字符
 			for (int i = 0; i < len; i++)
 			{
-				cout << "subset:word:" << temp->inchar[i] << ';' << endl;
+				//cout << "subset:word:" << temp->inchar[i] << ';' << endl;
 				//接受转移
 				if (temp->inchar[i] == word)
 				{
@@ -165,7 +166,7 @@ void subset(NFAlist &NFA, vector<int> &nodes,char word) {
 					}
 					if (equal)break;
 					newNodes.push_back(temp->NFAnode);			//转移后的状态入新集
-					cout << "subset:innode:" << newNodes.back() << ';' << endl;
+					//cout << "subset:innode:" << newNodes.back() << ';' << endl;
 					break;
 				}
 			}
@@ -177,7 +178,7 @@ void subset(NFAlist &NFA, vector<int> &nodes,char word) {
 }
 
 //判断集合中是否包含接受状态
-int accept(vector<int> &acc, vector<int> &nodes) {
+int accept(vector<int> acc, vector<int> nodes) {
 	for (auto i : nodes) {
 		for (auto j : acc) {
 			if (i == j)return 1;
@@ -186,50 +187,154 @@ int accept(vector<int> &acc, vector<int> &nodes) {
 	return 0;
 }
 
+
+
+/*		DFA模拟			*/
+
+
+//对NFA状态子集排序
+void sort(vector<int> &nodes) {
+	int len = (int)nodes.size();
+	int temp;
+	int num;
+	if (len == 0) {
+		cout << "sort:nodes is empty" << endl;
+		return;
+	}
+	for (int i = 0; i < len; i++)
+	{
+		num = 0;
+		for (int j = 0; j < len - 1 - i; j++)
+		{
+			if (nodes[j] > nodes[j + 1]) {
+				temp = nodes[j];
+				nodes[j] = nodes[j + 1];
+				nodes[j + 1] = temp;
+				num++;
+			}
+		}
+		if (num == 0)break;
+	}
+}
+
+//DFA初始化
+void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> &nodes) {
+	vector<vector<int>> map;									//NFA->DFA映射集
+	vector<char> words = { '+','-','.','0','1','2','3','4','5','6','7','8','9' };//可能的输入字符
+	vector<char> inchar;
+	int len = (int)words.size();
+
+	DFA.nodelist[0].start = 1;									//起始状态
+	sort(nodes);
+	map.push_back(nodes);
+	//对栈中的每个NFA状态集合
+	for (int n = 0; n < (int)map.size(); n++)
+	{
+
+		cout << "initialDFA:{" << endl;
+		cout << "DFA:" << n << endl;
+		cout << "NFAlist:";
+		for (auto m : map[n]) {
+			cout << m << ';';
+		}
+		cout << endl;
+
+		//对每个可能的输入字符
+		for (int i = 0; i < len; i++) {
+			nodes = map[n];
+			subset(NFA, nodes, words[i]);
+			sort(nodes);
+			int same = 0;
+			int index;
+			int len = (int)map.size();
+			//该集合是否已存在
+			for (int j = 0; j < len; j++)
+			{
+				if (map[j] == nodes) {
+					same++;
+					index = j;
+					break;
+				}
+			}
+			if (same)
+			{
+				inchar.push_back(words[i]); 
+				createVertex(DFA.nodelist[n], index, inchar);
+				cout << "trans:" << "source:" << n << ";target:" << index << ";char:" << words[i];
+				cout << "nodes:{";
+				for (auto m : nodes) {
+					cout << m << ';';
+				}
+				cout << '}' << endl;
+
+			}else{
+				map.push_back(nodes);
+				inchar.push_back(words[i]);
+				createVertex(DFA.nodelist[n], map.size()-1, inchar);
+				cout << "--trans:" << "source:" << n << ";target:" << map.size() - 1 << ";char:" << words[i];
+				cout << "nodes:{";
+				for (auto m : nodes) {
+					cout << m << ';';
+				}
+				cout << '}' << endl;
+			}
+			inchar.clear();
+		}
+		cout << '}' << endl;
+	}
+	
+}
+
 int main()
 {
 	NFAlist NFAdig;												//NFA图
 	vector<int> nodes;											//当前状态集
 	char inWord[100];											//输入字符
 
+	NFAlist DFAdig;												//DFA图
+
 	//初始化NFA图
 	nodes.push_back(0);
 	initial(NFAdig);
 	ECLOSE(NFAdig,nodes);
 
-	cout <<  "input some words:" << endl;
-	cin >> inWord;
+	initialDFA(NFAdig, DFAdig, nodes);
 
-	for (int i = 0; inWord[i] != '\0'&&i < 100; i++)
-	{
-		subset(NFAdig, nodes, inWord[i]);
-		cout << "subNodes:";
-		for (auto i : nodes) {
-			cout << i << ';';
-		}
-		cout << endl;
-	}
+	
 
-	cout << "nodes:";
-	for (auto i : nodes) {
-		cout << i << ';';
-	}
-	cout << endl;
-	//cout << (NFAdig.nodelist[3].first->next->NFAnode) << ';' << endl;
-	//subset(NFAdig, nodes, '1');
+	//cout <<  "input some words:" << endl;
+	//cin >> inWord;
 
-	//for (int i = 0; i < 20; i++)
+	//for (int i = 0; inWord[i] != '\0'&&i < 100; i++)
 	//{
-	//	std::cout << nodes[i] << ',';
+	//	subset(NFAdig, nodes, inWord[i]);
+	//	cout << "subNodes:";
+	//	for (auto i : nodes) {
+	//		cout << i << ';';
+	//	}
+	//	cout << endl;
 	//}
-	//std::cout << std::endl;
-	if (accept(NFAdig.acc, nodes)) {
-		cout << "accept";
-	}
-	else
-	{
-		cout << "reject";
-	}
-	return 0;
+
+	//cout << "nodes:";
+	//for (auto i : nodes) {
+	//	cout << i << ';';
+	//}
+	//cout << endl;
+	////cout << (NFAdig.nodelist[3].first->next->NFAnode) << ';' << endl;
+	////subset(NFAdig, nodes, '1');
+
+	////for (int i = 0; i < 20; i++)
+	////{
+	////	std::cout << nodes[i] << ',';
+	////}
+	////std::cout << std::endl;
+	//if (accept(NFAdig.acc, nodes)) {
+	//	cout << "accept" << endl;
+	//}
+	//else
+	//{
+	//	cout << "reject" << endl;
+	//}
+	//return 0;
 }
 
