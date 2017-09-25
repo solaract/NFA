@@ -250,6 +250,7 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> nodes) {
 			nodes = map[n];
 			subset(NFA, nodes, words[i]);
 			empty = !sort(nodes);
+			//跳过空子集（无转移）
 			if (empty)continue;
 			int same = 0;
 			int index;
@@ -265,6 +266,7 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> nodes) {
 			}
 			if (same)
 			{
+				//已存在的状态子集只添加转移
 				inchar.push_back(words[i]); 
 				createVertex(DFA.nodelist[n], index, inchar);
 				cout << "trans:" << "source:" << n << ";target:" << index << ";char:" << words[i];
@@ -275,6 +277,7 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> nodes) {
 				cout << '}' << endl;
 
 			}else{
+				//新的状态子集入栈并添加转移
 				map.push_back(nodes);
 				inchar.push_back(words[i]);
 				createVertex(DFA.nodelist[n], map.size()-1, inchar);
@@ -287,6 +290,7 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> nodes) {
 			}
 			inchar.clear();
 		}
+		//更新DFA的接受状态
 		if (accept(NFA.acc, map[n])) {
 			DFA.nodelist[n].end = 1;
 			DFA.acc.push_back(n);
