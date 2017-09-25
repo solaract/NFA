@@ -92,7 +92,7 @@ void ECLOSE(NFAlist NFA,vector<int> &nodes) {
 	int i = 0;													//当前状态位置
 	EdgeNode *temp;
 	//cout << "ECLOSE:" << (0 == NULL) << ';' << endl;
-	//对当前状态集中的每个状态
+	//对当前状态集中的每个状态，动态栈
 	while (i < (int)nodes.size()) {								//动态增长
 		//cout << "ECLOSE:node:" << nodes[i] << ';' << endl;
 		temp = NFA.nodelist[nodes[i]].first;					//进入下一状态
@@ -110,13 +110,13 @@ void ECLOSE(NFAlist NFA,vector<int> &nodes) {
 					//状态集自检有无重复
 					int equal = 0;
 					for (auto i : nodes) {
-						if (temp->NFAnode == i) {			//该状态已入集
+						if (temp->NFAnode == i) {			//该状态已入集（栈）
 							equal = 1;
 							break;
 						}
 					}
 					if (equal)break;
-					nodes.push_back(temp->NFAnode);				//转移后的状态入集
+					nodes.push_back(temp->NFAnode);				//转移后的状态入集（栈）
 					//cout << "ECLOSE:innode:" << nodes.back() << ';' << endl;
 					break;
 				}
@@ -139,7 +139,7 @@ void subset(NFAlist NFA, vector<int> &nodes,char word) {
 	int i = 0;													//当前状态索引
 	vector<int> newNodes;										//新状态集
 
-	//对当前状态集中的每个状态
+	//对当前状态集中的每个状态，静态栈
 	while (i < len)												//定长，结果不包含原来的状态
 	{
 		temp = NFA.nodelist[nodes[i]].first;					//进入下一状态
@@ -159,7 +159,7 @@ void subset(NFAlist NFA, vector<int> &nodes,char word) {
 					//新状态集自检有无重复
 					int equal = 0;
 					for (auto i : newNodes) {
-						if (temp->NFAnode == i) {			//该状态已入集
+						if (temp->NFAnode == i) {			//该状态已入集（栈）
 							equal = 1;
 							break;
 						}
@@ -181,6 +181,7 @@ void subset(NFAlist NFA, vector<int> &nodes,char word) {
 int accept(vector<int> acc, vector<int> nodes) {
 	for (auto i : nodes) {
 		for (auto j : acc) {
+			//cout << "i;j:" << i << ';' << j << endl;
 			if (i == j)return 1;
 		}
 	}
@@ -191,15 +192,14 @@ int accept(vector<int> acc, vector<int> nodes) {
 
 /*		DFA模拟			*/
 
-
-//对NFA状态子集排序
-void sort(vector<int> &nodes) {
+//对NFA状态子集排序（冒泡）
+int sort(vector<int> &nodes) {
 	int len = (int)nodes.size();
 	int temp;
 	int num;
 	if (len == 0) {
 		cout << "sort:nodes is empty" << endl;
-		return;
+		return 0;
 	}
 	for (int i = 0; i < len; i++)
 	{
@@ -215,19 +215,24 @@ void sort(vector<int> &nodes) {
 		}
 		if (num == 0)break;
 	}
+	return 1;
 }
 
 //DFA初始化
-void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> &nodes) {
+void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> nodes) {
 	vector<vector<int>> map;									//NFA->DFA映射集
 	vector<char> words = { '+','-','.','0','1','2','3','4','5','6','7','8','9' };//可能的输入字符
 	vector<char> inchar;
 	int len = (int)words.size();
 
 	DFA.nodelist[0].start = 1;									//起始状态
-	sort(nodes);
+	if (!sort(nodes))
+	{
+		cout << "start set is empty!";
+		return;
+	}
 	map.push_back(nodes);
-	//对栈中的每个NFA状态集合
+	//对动态栈中的每个NFA状态集合
 	for (int n = 0; n < (int)map.size(); n++)
 	{
 
@@ -241,9 +246,11 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> &nodes) {
 
 		//对每个可能的输入字符
 		for (int i = 0; i < len; i++) {
+			int empty;
 			nodes = map[n];
 			subset(NFA, nodes, words[i]);
-			sort(nodes);
+			empty = !sort(nodes);
+			if (empty)continue;
 			int same = 0;
 			int index;
 			int len = (int)map.size();
@@ -280,6 +287,11 @@ void initialDFA(NFAlist NFA,NFAlist &DFA, vector<int> &nodes) {
 			}
 			inchar.clear();
 		}
+		if (accept(NFA.acc, map[n])) {
+			DFA.nodelist[n].end = 1;
+			DFA.acc.push_back(n);
+			cout << "--acc" << endl;
+		}
 		cout << '}' << endl;
 	}
 	
@@ -290,6 +302,8 @@ int main()
 	NFAlist NFAdig;												//NFA图
 	vector<int> nodes;											//当前状态集
 	char inWord[100];											//输入字符
+	int mode = 0;												//解析模式
+	NFAlist *analyse;
 
 	NFAlist DFAdig;												//DFA图
 
@@ -298,43 +312,47 @@ int main()
 	initial(NFAdig);
 	ECLOSE(NFAdig,nodes);
 
-	initialDFA(NFAdig, DFAdig, nodes);
+	cout << "input a number 0:NFA or 1:DFA to choose the analyse mode:" << endl;
+	cin >> mode;
 
-	
+	cout <<  "input some words:" << endl;
+	cin >> inWord;
 
-	//cout <<  "input some words:" << endl;
-	//cin >> inWord;
+	if (mode == 1) {
+		//初始化DFA图
+		initialDFA(NFAdig, DFAdig, nodes);
+		nodes.clear();
+		nodes.push_back(0);
+		analyse = &DFAdig;
+	}
+	else
+	{
+		analyse = &NFAdig;
+	}
 
-	//for (int i = 0; inWord[i] != '\0'&&i < 100; i++)
-	//{
-	//	subset(NFAdig, nodes, inWord[i]);
-	//	cout << "subNodes:";
-	//	for (auto i : nodes) {
-	//		cout << i << ';';
-	//	}
-	//	cout << endl;
-	//}
+	for (int i = 0; inWord[i] != '\0'&&i < 100; i++)
+	{
+		subset(*analyse, nodes, inWord[i]);
+		cout << "subNodes:";
+		for (auto i : nodes) {
+			cout << i << ';';
+		}
+		cout << endl;
+	}
 
-	//cout << "nodes:";
-	//for (auto i : nodes) {
-	//	cout << i << ';';
-	//}
-	//cout << endl;
-	////cout << (NFAdig.nodelist[3].first->next->NFAnode) << ';' << endl;
-	////subset(NFAdig, nodes, '1');
+	cout << "finalNodes:";
+	for (auto i : nodes) {
+		cout << i << ';';
+	}
+	cout << endl;
 
-	////for (int i = 0; i < 20; i++)
-	////{
-	////	std::cout << nodes[i] << ',';
-	////}
-	////std::cout << std::endl;
-	//if (accept(NFAdig.acc, nodes)) {
-	//	cout << "accept" << endl;
-	//}
-	//else
-	//{
-	//	cout << "reject" << endl;
-	//}
-	//return 0;
+	if (accept(analyse->acc, nodes)) {
+		cout << "accept" << endl;
+	}
+	else
+	{
+		cout << "reject" << endl;
+	}
+	return 0;
 }
 
